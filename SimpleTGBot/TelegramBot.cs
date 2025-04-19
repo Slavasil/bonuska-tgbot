@@ -8,14 +8,19 @@ namespace SimpleTGBot;
 
 public class TelegramBot
 {
-    private const string BotToken = "ВАШ_ТОКЕН_ИДЕНТИФИКАЦИИ_БОТА";
+    private string token;
+
+    public TelegramBot(string token)
+    {
+        this.token = token;
+    }
     
     /// <summary>
     /// Инициализирует и обеспечивает работу бота до нажатия клавиши Esc
     /// </summary>
     public async Task Run()
     {
-        var botClient = new TelegramBotClient(BotToken);
+        var botClient = new TelegramBotClient(token);
 
         using CancellationTokenSource cts = new CancellationTokenSource();
         ReceiverOptions receiverOptions = new ReceiverOptions()
@@ -29,11 +34,20 @@ public class TelegramBot
             cancellationToken: cts.Token
         );
 
-        var me = await botClient.GetMeAsync(cancellationToken: cts.Token);
-        Console.WriteLine($"Бот @{me.Username} запущен.\nДля остановки нажмите клавишу Esc...");
+        try
+        {
+            var me = await botClient.GetMeAsync(cancellationToken: cts.Token);
+            Console.WriteLine($"Бот @{me.Username} запущен.\nДля остановки нажмите клавишу Esc...");
+        }
+        catch (ApiRequestException)
+        {
+            Console.WriteLine("Указан неправильный токен");
+            goto botQuit;
+        }
         
         while (Console.ReadKey().Key != ConsoleKey.Escape){}
 
+botQuit:
         cts.Cancel();
     }
     

@@ -10,7 +10,21 @@ public static class Program
         // Православная кодировка
         Console.OutputEncoding = Encoding.UTF8;
 
-        TelegramBot telegramBot = new TelegramBot();
+        string? botToken = Config.TryReadBotTokenFile();
+
+        if (botToken == null)
+        {
+            Console.WriteLine($"Файл {Config.DEFAULT_BOT_TOKEN_FILENAME} не найден. Вы можете указать токен вручную:");
+            Console.Write("$ ");
+            botToken = Console.ReadLine();
+        }
+
+        if (botToken == null)
+        {
+            return 1;
+        }
+
+        TelegramBot telegramBot = new TelegramBot(botToken);
         await telegramBot.Run();
     }
 }
