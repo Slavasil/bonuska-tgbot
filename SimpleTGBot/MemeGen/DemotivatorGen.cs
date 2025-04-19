@@ -125,7 +125,7 @@ public class DemotivatorGen
                 g.DrawImage(picture, contX + bt + pad, contY + bt + pad, contWidth - bt * 2 - pad * 2, contHeight - bt * 2 - pad * 2);
             }
 
-            float titleY = contY + contHeight + capSp;// + style.TitleFont.GetHeight();
+            float titleY = contY + contHeight + capSp;
             foreach (string titleLine in titles[j])
             {
                 float titleX = currentOrigin.X + (availableWidth - g.MeasureString(titleLine, style.TitleFont).Width) / 2f;
@@ -133,11 +133,10 @@ public class DemotivatorGen
                 titleY += titleFontHeight;
             }
 
-            float subtitleY = titleY/* - titleFontHeight*/ + capSp;
+            float subtitleY = titleY + capSp;
             string[] subtitleLines = subtitles[j];
             if (subtitleLines.Length > 0)
             {
-                // subtitleY += subtitleFontHeight;
                 foreach (string subtitleLine in subtitleLines)
                 {
                     float subtitleX = currentOrigin.X + (availableWidth - measureSubtitleString(subtitleLine)) / 2f;
@@ -176,55 +175,54 @@ public class DemotivatorGen
                 actualWidth = Math.Max(width - free, actualWidth);
                 rawPosition += word.Length + 1;
                 words--;
-                continue; // TODO заменить if на else-if чтобы убрать continue
             }
-            if (wordWidth <= width)
+            else if (wordWidth <= width)
             {
                 if (!trailingReturn)
-                    wrappedText.Append("\n");
+                    wrappedText.Append('\n');
                 wrappedText.Append(word);
-                wrappedText.Append(" ");
+                wrappedText.Append(' ');
                 trailingReturn = false;
                 free = width - wordWidth;
                 rawPosition += word.Length + 1;
                 words--;
-                continue;
             }
-            if (wordWidth <= maxWidth)
+            else if (wordWidth <= maxWidth)
             {
                 actualWidth = Math.Max(actualWidth, wordWidth);
                 if (!trailingReturn)
-                    wrappedText.Append("\n");
+                    wrappedText.Append('\n');
                 wrappedText.Append(word);
-                wrappedText.Append("\n");
+                wrappedText.Append('\n');
                 trailingReturn = true;
                 free = width;
                 rawPosition += word.Length + 1;
                 words--;
-                continue;
             }
-
-            // TODO заменить на что-то поэффективнее
-            float substrWidth = 0;
-            int substrLength = word.Length;
-            for (int c = 0; c < word.Length; ++c)
+            else
             {
-                float charWidth = measureString(word[c].ToString());
-                if (substrWidth + charWidth > maxWidth)
+                // TODO заменить на что-то поэффективнее
+                float substrWidth = 0;
+                int substrLength = word.Length;
+                for (int c = 0; c < word.Length; ++c)
                 {
-                    substrLength = c;
-                    break;
+                    float charWidth = measureString(word[c].ToString());
+                    if (substrWidth + charWidth > maxWidth)
+                    {
+                        substrLength = c;
+                        break;
+                    }
+                    substrWidth += charWidth;
                 }
-                substrWidth += charWidth;
+                if (!trailingReturn)
+                    wrappedText.Append('\n');
+                wrappedText.Append(word.Substring(0, substrLength));
+                wrappedText.Append('\n');
+                trailingReturn = true;
+                free = width;
+                rawPosition += substrLength;
+                actualWidth = maxWidth;
             }
-            if (!trailingReturn)
-                wrappedText.Append("\n");
-            wrappedText.Append(word.Substring(0, substrLength));
-            wrappedText.Append("\n");
-            trailingReturn = true;
-            free = width;
-            rawPosition += substrLength;
-            actualWidth = maxWidth;
         }
         return new WordWrapResult()
         {
