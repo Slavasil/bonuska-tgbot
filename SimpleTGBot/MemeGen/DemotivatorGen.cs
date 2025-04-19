@@ -57,7 +57,6 @@ public class DemotivatorGen
         // код расчёта
         SizeF[] subdemSizes = new SizeF[texts.Length];
         float aspectRatio = (float)picture.Height / picture.Width;
-        Console.WriteLine("aspect ratio " + aspectRatio);
         float scaledPictureWidth = Math.Clamp(picture.Width, 800, 1200);
         float scaledPictureHeight = scaledPictureWidth * aspectRatio;
         float contentWidth = scaledPictureWidth + style.Padding * 2;
@@ -68,41 +67,29 @@ public class DemotivatorGen
         string[][] subtitles = new string[texts.Length][];
         for (int i = 0; i < texts.Length; ++i)
         {
-            Console.WriteLine("subdemotivator #" + i);
             float frameWidth = contentWidth + style.Padding * 2.0f + style.BorderThickness * 2.0f;
-            Console.WriteLine("frame width " + frameWidth);
             float frameHeight = contentHeight + style.Padding * 2.0f + style.BorderThickness * 2.0f;
 
             string title = texts[i].Title;
             WordWrapResult titleWrap = wordWrap(title, frameWidth + style.Wtf1 * 2f, frameWidth * 1.5f, measureTitleString);
-            // captions.set(i * 2, titleWrap.wrappedString)
             titles[i] = titleWrap.lines;
-            Console.WriteLine("title width " + titleWrap.actualWidth);
 
             string subtitle = texts[i].Subtitle;
             WordWrapResult subtitleWrap = wordWrap(subtitle, frameWidth + style.Wtf1 * 2f, titleWrap.actualWidth, measureSubtitleString);
-            // captions.set(i * 2 + 1, subtitleWrap.wrappedString)
             subtitles[i] = subtitleWrap.lines;
-            Console.WriteLine("subtitle width " + subtitleWrap.actualWidth);
 
             float subdemWidth = Math.Max(frameWidth, Math.Max(titleWrap.actualWidth, subtitleWrap.actualWidth));
             subdemWidth += style.Padding * 2f;
-            Console.WriteLine("subdemotivator width: " + subdemWidth);
 
-            // Console.WriteLine("\"" + titleWrap.wrappedString + "\"");
-            // Console.WriteLine("\"" + subtitleWrap.wrappedString + "\"");
             int titleLineCount = titleWrap.lines.Length;
             int subtitleLineCount = subtitleWrap.lines.Length;
-            Console.WriteLine(titleLineCount + " lines of title, " + subtitleLineCount + " lines of subtitle");
             float titleHeight = titleFontHeight * titleLineCount;
             float subtitleHeight = subtitleFontHeight * subtitleLineCount;
 
             float subdemHeight = style.Padding * 2f + frameHeight + titleHeight + subtitleHeight;
             subdemSizes[i] = new SizeF(subdemWidth, subdemHeight);
-            Console.WriteLine("subdemotivator size: " + subdemWidth + "x" + subdemHeight);
             contentWidth = subdemWidth;
             contentHeight = subdemHeight;
-            Console.WriteLine("-------------------------");
         }
         contentHeight += style.OuterMargin * 2f;
 
@@ -135,7 +122,6 @@ public class DemotivatorGen
             g.FillRectangle(backgroundBrush, contX + bt, contY + bt, contWidth - bt * 2f, contHeight - bt * 2f);
             if (j == 0)
             {
-                Console.WriteLine($"drawing image at ({contX+bt+pad}; {contY+bt+pad}) with size {contWidth-bt*2-pad*2}x{contHeight-bt*2-pad*2}");
                 g.DrawImage(picture, contX + bt + pad, contY + bt + pad, contWidth - bt * 2 - pad * 2, contHeight - bt * 2 - pad * 2);
             }
 
@@ -159,7 +145,6 @@ public class DemotivatorGen
                     subtitleY += subtitleFontHeight;
                 }
             }
-            Console.WriteLine("sub-demotivator " + j + " height is " + (subtitleY - currentOrigin.Y));
             currentOrigin.X += bt + (availableWidth - contWidth) / 2f;
             currentOrigin.Y += bt + pad;
         }
