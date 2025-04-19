@@ -1,4 +1,5 @@
-﻿using Telegram.Bot;
+﻿using SimpleTGBot.MemeGen;
+using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -76,6 +77,10 @@ botQuit:
             chatId: chatId,
             text: "Ты написал:\n" + messageText,
             cancellationToken: cancellationToken);
+
+        // грязный тест
+        MemoryStream demotivatorPng = DemotivatorGen.MakePictureDemotivator("pic.png", [new DemotivatorText() {Title=messageText, Subtitle=messageText}], DemotivatorGen.DefaultStyle());
+        await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivatorPng, "dem.png"));
     }
 
     /// <summary>
