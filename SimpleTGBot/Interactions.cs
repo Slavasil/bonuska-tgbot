@@ -4,7 +4,7 @@ namespace SimpleTGBot;
 
 internal static class Interactions
 {
-    public const string awaitingPictureMessage = "Привет. Я - бот, который умеет делать демотиваторы. Присылай картинку, а я скажу, что делать дальше. Или можешь нажать на кнопку в меню.";
+    public const string awaitingPictureMessage = "Присылай картинку, а я скажу, что делать дальше. Или можешь нажать на кнопку в меню.";
     public const string sayHelloMessage = "Напиши \"привет\" или нажми на кнопку в меню, чтобы начать.";
     public const string sendPictureOrQuitMessage = "Пришли мне картинку для демотиватора, чтобы продолжить. Чтобы отменить, напиши \"назад\" или \"\"";
     public const string sendTitleOrQuitMessage = "Пришли мне текст для демотиватора, чтобы продолжить. Чтобы отменить, нажми на кнопку в меню.";
