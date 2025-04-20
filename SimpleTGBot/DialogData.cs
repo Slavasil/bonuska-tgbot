@@ -6,6 +6,7 @@ internal class DialogData
     public string? inputPictureFilename;
     public string? inputTitle;
     public UserPreset[]? shownPresets;
+    public UserPreset incompletePreset;
 }
 
 enum DialogState
@@ -18,4 +19,8 @@ enum DialogState
     Settings,
     ViewingPresets,
     ChoosingPreset,
+    CreatingPreset_AwaitingName,
+    CreatingPreset_AwaitingOutlineColor,
+    CreatingPreset_AwaitingTitleColor,
+    CreatingPreset_AwaitingSubtitleColor,
 }

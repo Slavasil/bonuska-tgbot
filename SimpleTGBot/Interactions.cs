@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Drawing;
+using System.Text;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace SimpleTGBot;
@@ -17,6 +18,12 @@ internal static class Interactions
     public const string settingsMessage = "Здесь можно:\n- настроить сохранённые стили";
     public const string choosePresetMessage = "Какой пресет сделать активым (цыфра)?";
     public const string enterPresetNumberMessage = "Введи номер пресета.";
+    public const string enterPresetNameMessage = "Назови свой новый пресет.";
+    public const string enterPresetOutlineColorMessage_head = "Выбери цвет обводки:\n0) оставить без изменений\n";
+    public const string enterPresetTitleColorMessage_head = "Выбери цвет заголовка:\n0) оставить без изменений\n";
+    public const string enterPresetSubtitleColorMessage_head = "Выбери цвет подзаголовка:\n0) оставить без изменений\n";
+    public const string enterPresetColorMessage_tail = "\nИли введи hex-код цвета через #.";
+    public const string presetCreatedMessage = "Пресет создан!";
 
     static readonly string[] helloWords = ["прив","привет","▶️начать","ку","хай","приветик","превед","привки","хаюхай","здравствуй","здравствуйте","здорово","дарова","дороу","здарова","здорова"];
     static readonly string[] cancelWords = ["↩️назад", "назад", "выйти", "отмена", "отменить", "отменяй", "галя", "галина", "стоп"];
@@ -25,13 +32,17 @@ internal static class Interactions
     public static readonly string backButtonText = "↩️Назад";
     public static readonly string gotoPresetsButtonText = "🎨Сохранённые стили";
     public static readonly string doneButtonText = "✅Готово";
-    public static readonly string choosePresetButtonText = "☑️Выбрать активный";
+    public static readonly string choosePresetButtonText = "☑️Выбрать";
+    public static readonly string createPresetButtonText = "🔶Создать";
+
+    public static readonly Color[] quickSelectColors = [Color.FromArgb(255,255,255,255),Color.FromArgb(255,192,192,192),Color.FromArgb(255,15,216,152),Color.FromArgb(255,85,119,252)];
+    public static readonly string[] quickSelectColorNames = ["белый", "серый", "зелёный", "голубой"];
 
     public static readonly IReplyMarkup mainReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton("▶️Начать")], [new KeyboardButton("⚙️Настройки")]]);
     public static readonly IReplyMarkup backButtonReplyMarkup = new ReplyKeyboardMarkup(new KeyboardButton("↩️Назад"));
     public static readonly IReplyMarkup resultActionReplyMarkup = new ReplyKeyboardMarkup([new KeyboardButton(doneButtonText)]);
     public static readonly IReplyMarkup settingsReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton(gotoPresetsButtonText)], [new KeyboardButton(backButtonText)]]);
-    public static readonly IReplyMarkup presetsReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton(choosePresetButtonText)], [new KeyboardButton(backButtonText)]]);
+    public static readonly IReplyMarkup presetsReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton(choosePresetButtonText), new KeyboardButton(createPresetButtonText)], [new KeyboardButton(backButtonText)]]);
 
     static readonly string[] digitEmojis = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
 
@@ -84,6 +95,42 @@ internal static class Interactions
         }
         msg.Append("\n");
         return msg.ToString();
+    }
+
+    public static string MakeColorPickMessage(int type)
+    {
+        StringBuilder msg = new StringBuilder();
+        msg.Append(type switch
+        {
+            0 => enterPresetOutlineColorMessage_head,
+            1 => enterPresetTitleColorMessage_head,
+            _ => enterPresetSubtitleColorMessage_head
+        });
+        for (int i = 1; i < quickSelectColors.Length; i++)
+        {
+            msg.Append($"{i}) {quickSelectColorNames[i - 1]} ({ColorToHex(quickSelectColors[i])})\n");
+        }
+        msg.Append(enterPresetColorMessage_tail);
+        return msg.ToString();
+    }
+
+    public static string ColorToHex(Color color)
+    {
+        return "#" + (color.ToArgb() & 0xFFFFFF).ToString("x6");
+    }
+
+    public static bool HexToColor(string hex, out Color color)
+    {
+        if (uint.TryParse(hex[1..], out uint c))
+        {
+            color = Color.FromArgb((int)(0xFF000000U | c));
+            return true;
+        }
+        else
+        {
+            color = default;
+            return false;
+        }
     }
 
     public static string DigitsToEmoji(string s)

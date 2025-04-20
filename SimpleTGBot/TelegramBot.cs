@@ -244,6 +244,12 @@ internal class TelegramBot
                             dialogData.state = DialogState.ChoosingPreset;
                             await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.choosePresetMessage, replyMarkup: Interactions.backButtonReplyMarkup);
                         }
+                        else if (messageText == Interactions.createPresetButtonText)
+                        {
+                            replied = true;
+                            dialogData.state = DialogState.CreatingPreset_AwaitingName;
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.enterPresetNameMessage, replyMarkup: Interactions.backButtonReplyMarkup, cancellationToken: cancellationToken);
+                        }
                     }
                     if (!replied)
                     {
@@ -277,6 +283,97 @@ internal class TelegramBot
                     if (!replied)
                     {
                         await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.enterPresetNumberMessage, replyMarkup: Interactions.presetsReplyMarkup);
+                    }
+                    break;
+                }
+            case DialogState.CreatingPreset_AwaitingName:
+            case DialogState.CreatingPreset_AwaitingOutlineColor:
+            case DialogState.CreatingPreset_AwaitingTitleColor:
+            case DialogState.CreatingPreset_AwaitingSubtitleColor:
+                {
+                    bool replied = false;
+                    if (message.Text is { } messageText)
+                    {
+                        if (messageText == Interactions.backButtonText)
+                        {
+                            replied = true;
+                            await DialogShowPresets(botClient, user, message.Chat.Id, dialogData);
+                        }
+                        else if (dialogData.state == DialogState.CreatingPreset_AwaitingName)
+                        {
+                            replied = true;
+                            dialogData.incompletePreset.Name = messageText;
+                            dialogData.state = DialogState.CreatingPreset_AwaitingOutlineColor;
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakeColorPickMessage(0), replyMarkup: Interactions.backButtonReplyMarkup, cancellationToken: cancellationToken);
+                        }
+                        else
+                        {
+                            System.Drawing.Color color = default;
+                            bool unchanged = false;
+                            if (messageText.StartsWith('#'))
+                            {
+                                if (Interactions.HexToColor(messageText, out color))
+                                {
+                                    replied = true;
+                                }
+                            } else
+                            {
+                                if (int.TryParse(messageText, out int colorNumber))
+                                {
+                                    if (colorNumber >= 0 && colorNumber <= Interactions.quickSelectColors.Length)
+                                    {
+                                        if (colorNumber == 0)
+                                        {
+                                            unchanged = true;
+                                        }
+                                        else
+                                        {
+                                            color = Interactions.quickSelectColors[colorNumber - 1];
+                                        }
+                                        replied = true;
+                                    }
+                                }
+                            }
+                            if (replied)
+                            {
+                                if (dialogData.state == DialogState.CreatingPreset_AwaitingOutlineColor)
+                                {
+                                    dialogData.incompletePreset.OutlineColor = unchanged ? System.Drawing.Color.FromArgb(255, 255, 255, 255) : color;
+                                    dialogData.state = DialogState.CreatingPreset_AwaitingTitleColor;
+                                    await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakeColorPickMessage(1), replyMarkup: Interactions.backButtonReplyMarkup, cancellationToken: cancellationToken);
+                                }
+                                else if (dialogData.state == DialogState.CreatingPreset_AwaitingTitleColor)
+                                {
+                                    dialogData.incompletePreset.TitleColor = unchanged ? System.Drawing.Color.FromArgb(255, 255, 255, 255) : color;
+                                    dialogData.state = DialogState.CreatingPreset_AwaitingSubtitleColor;
+                                    await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakeColorPickMessage(2), replyMarkup: Interactions.backButtonReplyMarkup, cancellationToken: cancellationToken);
+                                }
+                                else if (dialogData.state == DialogState.CreatingPreset_AwaitingSubtitleColor)
+                                {
+                                    dialogData.incompletePreset.SubtitleColor = unchanged ? System.Drawing.Color.FromArgb(255, 255, 255, 255) : color;
+                                    dialogData.incompletePreset.OwnerId = user.Id;
+                                    long id = await AddPresetToDatabase(dialogData.incompletePreset);
+                                    logger.Info($"Создан новый пресет стиля для пользователя {user.Id}: {id}");
+                                    await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.presetCreatedMessage, replyMarkup: Interactions.backButtonReplyMarkup, cancellationToken: cancellationToken);
+                                    await DialogShowPresets(botClient, user, message.Chat.Id, dialogData);
+                                }
+                            }
+                        }
+                    }
+                    if (!replied)
+                    {
+                        if (dialogData.state == DialogState.CreatingPreset_AwaitingName)
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.enterPresetNameMessage, replyMarkup: Interactions.backButtonReplyMarkup, cancellationToken: cancellationToken);
+                        else
+                        {
+                            int t = dialogData.state switch
+                            {
+                                DialogState.CreatingPreset_AwaitingOutlineColor => 0,
+                                DialogState.CreatingPreset_AwaitingTitleColor => 1,
+                                DialogState.CreatingPreset_AwaitingSubtitleColor => 2,
+                            };
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakeColorPickMessage(t), replyMarkup: Interactions.backButtonReplyMarkup, cancellationToken: cancellationToken);
+                        }
                     }
                     break;
                 }
@@ -329,10 +426,19 @@ internal class TelegramBot
         if (subtitle != null)
         {
             logger.Info($"Генерирую простой демотиватор: [\"{title}\", \"{subtitle}\"]");
+            DemotivatorStyle style = DemotivatorGen.DefaultStyle();
+            try
+            {
+                ApplyUserPreset(style, await GetActiveUserPreset(message.From!));
+            }
+            catch (Exception)
+            {
+                logger.Error("Не удалось применить пользовательский стиль");
+            }
             MemoryStream demotivator = DemotivatorGen.MakePictureDemotivator(
                 dialogData.inputPictureFilename!,
                 [new DemotivatorText() { Title = title, Subtitle = subtitle }],
-                DemotivatorGen.DefaultStyle());
+                style);
             dialogData.state = DialogState.ShowingResult;
             await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, replyMarkup: Interactions.resultActionReplyMarkup, cancellationToken: cancellationToken);
             demotivator.Dispose();
@@ -351,10 +457,19 @@ internal class TelegramBot
         string title = dialogData.inputTitle!;
 
         logger.Info($"Генерирую простой демотиватор: [\"{title}\", \"{subtitle}\"]");
+        DemotivatorStyle style = DemotivatorGen.DefaultStyle();
+        try
+        {
+            ApplyUserPreset(style, await GetActiveUserPreset(message.From!));
+        }
+        catch (Exception)
+        {
+            logger.Error("Не удалось применить пользовательский стиль");
+        }
         MemoryStream demotivator = DemotivatorGen.MakePictureDemotivator(
                 dialogData.inputPictureFilename!,
                 [new DemotivatorText() { Title = title, Subtitle = subtitle }],
-                DemotivatorGen.DefaultStyle());
+                style);
         dialogData.state = DialogState.ShowingResult;
         await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, replyMarkup: Interactions.resultActionReplyMarkup, cancellationToken: cancellationToken);
         demotivator.Dispose();
@@ -389,6 +504,13 @@ internal class TelegramBot
         }
         dialogData.shownPresets = presets;
         await botClient.SendTextMessageAsync(chatId, Interactions.MakePresetListMessage(presets.Select(preset => preset.Name).ToArray(), activePresetIndex), replyMarkup: Interactions.presetsReplyMarkup);
+    }
+
+    void ApplyUserPreset(DemotivatorStyle style, UserPreset preset)
+    {
+        style.OutlineColor = preset.OutlineColor;
+        style.TitleColor = preset.TitleColor;
+        style.SubtitleColor = preset.SubtitleColor;
     }
 
     async Task AddUserToDatabase(User u)
