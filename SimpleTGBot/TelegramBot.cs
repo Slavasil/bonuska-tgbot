@@ -10,10 +10,12 @@ namespace SimpleTGBot;
 public class TelegramBot
 {
     private string token;
+    private TempStorage temp;
 
     public TelegramBot(string token)
     {
         this.token = token;
+        temp = new TempStorage();
     }
     
     /// <summary>
@@ -48,8 +50,9 @@ public class TelegramBot
         
         while (Console.ReadKey().Key != ConsoleKey.Escape){}
 
-botQuit:
+    botQuit:
         cts.Cancel();
+        temp.Dispose();
     }
     
     /// <summary>
