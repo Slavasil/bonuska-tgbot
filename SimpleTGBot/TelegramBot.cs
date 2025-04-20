@@ -212,7 +212,17 @@ internal class TelegramBot
                         {
                             replied = true;
                             dialogData.state = DialogState.ViewingPresets;
-                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakePresetListMessage((await GetUserPresets(user)).Select(preset => preset.Name).ToArray()), replyMarkup: Interactions.backButtonReplyMarkup);
+                            (UserPreset[] presets, long activePresetId) = await GetUserPresets(user);
+                            int activePresetIndex = 0;
+                            for (int i = 0; i < presets.Length; ++i)
+                            {
+                                if (presets[i].Id == activePresetId)
+                                {
+                                    activePresetIndex = i;
+                                    break;
+                                }
+                            }
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakePresetListMessage(presets.Select(preset => preset.Name).ToArray(), activePresetIndex), replyMarkup: Interactions.backButtonReplyMarkup);
                         }
                         else if (messageText == Interactions.backButtonText)
                         {
@@ -349,19 +359,27 @@ internal class TelegramBot
         cmd = database.CreateCommand();
         UserPreset defaultPreset = UserPreset.Default();
         defaultPreset.OwnerId = u.Id;
-        await AddPresetToDatabase(defaultPreset);
+        long defaultPresetId = await AddPresetToDatabase(defaultPreset);
+
+        cmd = database.CreateCommand();
+        cmd.CommandText = "UPDATE users SET selected_preset = $1 WHERE id = $2";
+        cmd.Parameters.AddWithValue("$1", defaultPresetId);
+        cmd.Parameters.AddWithValue("$2", u.Id);
+        await cmd.ExecuteNonQueryAsync();
     }
 
-    async Task AddPresetToDatabase(UserPreset p)
+    async Task<long> AddPresetToDatabase(UserPreset p)
     {
         var cmd = database.CreateCommand();
-        cmd.CommandText = "INSERT INTO user_presets (user_id, name, outline_color, title_color, subtitle_color) VALUES ($1, $2, $3, $4, $5)";
+        cmd.CommandText = @"
+            INSERT INTO user_presets (user_id, name, outline_color, title_color, subtitle_color) VALUES ($1, $2, $3, $4, $5);
+            SELECT last_insert_rowid();";
         cmd.Parameters.AddWithValue("$1", p.OwnerId);
         cmd.Parameters.AddWithValue("$2", p.Name);
         cmd.Parameters.AddWithValue("$3", (long)p.OutlineColor.ToArgb() & 0xFFFFFFL);
         cmd.Parameters.AddWithValue("$4", (long)p.TitleColor.ToArgb() & 0xFFFFFFL);
         cmd.Parameters.AddWithValue("$5", (long)p.SubtitleColor.ToArgb() & 0xFFFFFFL);
-        await cmd.ExecuteNonQueryAsync();
+        return (long)await cmd.ExecuteScalarAsync();
     }
 
     async Task<bool> IsUserInDatabase(User u)
@@ -373,10 +391,10 @@ internal class TelegramBot
         return await reader.ReadAsync();
     }
 
-    async Task<UserPreset[]> GetUserPresets(User u)
+    async Task<(UserPreset[], long)> GetUserPresets(User u)
     {
         var cmd = database.CreateCommand();
-        cmd.CommandText = "SELECT id, user_id, name, outline_color, title_color, subtitle_color FROM user_presets WHERE id = $1";
+        cmd.CommandText = "SELECT id, user_id, name, outline_color, title_color, subtitle_color FROM user_presets WHERE user_id = $1";
         cmd.Parameters.AddWithValue("$1", u.Id);
         using var reader = await cmd.ExecuteReaderAsync();
         List<UserPreset> result = new List<UserPreset>();
@@ -392,7 +410,7 @@ internal class TelegramBot
                 SubtitleColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(5))),
             });
         }
-        return result.ToArray();
+        return (result.ToArray(), (await GetActiveUserPreset(u)).Id);
     }
 
     async Task<UserPreset?> GetUserPresetByName(User u, string name)

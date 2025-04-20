@@ -23,11 +23,13 @@ internal static class Interactions
     public static readonly string backButtonText = "↩️Назад";
     public static readonly string gotoPresetsButtonText = "🎨Сохранённые стили";
     public static readonly string doneButtonText = "✅Готово";
+    public static readonly string choosePresetButtonText = "☑️Сделать активным";
 
     public static readonly IReplyMarkup mainReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton("▶️Начать")], [new KeyboardButton("⚙️Настройки")]]);
     public static readonly IReplyMarkup backButtonReplyMarkup = new ReplyKeyboardMarkup(new KeyboardButton("↩️Назад"));
     public static readonly IReplyMarkup resultActionReplyMarkup = new ReplyKeyboardMarkup([new KeyboardButton(doneButtonText)]);
     public static readonly IReplyMarkup settingsReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton(gotoPresetsButtonText)], [new KeyboardButton(backButtonText)]]);
+    public static readonly IReplyMarkup presetsReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton(choosePresetButtonText)], [new KeyboardButton(backButtonText)]]);
 
     static readonly string[] digitEmojis = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
 
@@ -59,7 +61,7 @@ internal static class Interactions
         return message == backButtonText;
     }
 
-    public static string MakePresetListMessage(string[] presetNames)
+    public static string MakePresetListMessage(string[] presetNames, int activePresetIndex)
     {
         StringBuilder msg = new StringBuilder();
         msg.Append("Твои сохранённые стили:\n");
@@ -68,6 +70,10 @@ internal static class Interactions
             msg.Append(DigitsToEmoji((i + 1).ToString()));
             msg.Append(' ');
             msg.Append(presetNames[i]);
+            if (i == activePresetIndex)
+            {
+                msg.Append(" (выбран)");
+            }
             msg.Append('\n');
         }
         if (presetNames.Length == 0)
