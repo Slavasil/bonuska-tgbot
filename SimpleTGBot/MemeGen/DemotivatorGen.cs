@@ -147,7 +147,8 @@ public class DemotivatorGen
             currentOrigin.X += bt + (availableWidth - contWidth) / 2f;
             currentOrigin.Y += bt + pad;
         }
-        
+
+        picture.Dispose();
         MemoryStream outStream = new MemoryStream();
         bitmap.Save(outStream, ImageFormat.Png);
         outStream.Seek(0, SeekOrigin.Begin);
