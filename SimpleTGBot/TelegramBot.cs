@@ -170,7 +170,16 @@ internal class TelegramBot
                     bool replied = false;
                     if (message.Text is { } messageText)
                     {
-
+                        if (messageText == Interactions.doneButtonText)
+                        {
+                            replied = true;
+                            dialogData.state = DialogState.AwaitingPicture;
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.quickActionReplyMarkup);
+                        }
+                    }
+                    if (!replied)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.chooseActionMessage, replyMarkup: Interactions.resultActionReplyMarkup);
                     }
                     break;
                 }
@@ -228,7 +237,7 @@ internal class TelegramBot
                 [new DemotivatorText() { Title = title, Subtitle = subtitle }],
                 DemotivatorGen.DefaultStyle());
             DialogFinishDemotivatorCreation(dialogData);
-            await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, cancellationToken: cancellationToken);
+            await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, replyMarkup: Interactions.resultActionReplyMarkup, cancellationToken: cancellationToken);
             demotivator.Dispose();
         } else
         {
@@ -250,7 +259,7 @@ internal class TelegramBot
                 [new DemotivatorText() { Title = title, Subtitle = subtitle }],
                 DemotivatorGen.DefaultStyle());
         DialogFinishDemotivatorCreation(dialogData);
-        await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, cancellationToken: cancellationToken);
+        await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, replyMarkup: Interactions.resultActionReplyMarkup, cancellationToken: cancellationToken);
         demotivator.Dispose();
     }
 
