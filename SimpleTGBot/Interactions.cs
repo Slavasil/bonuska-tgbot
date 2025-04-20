@@ -15,6 +15,8 @@ internal static class Interactions
     public const string awaitingSubtitleMessage = "Найс. Напиши текст, который будет под заголовком, или точку (.), чтобы не добавлять его.";
     public const string chooseActionMessage = "Нажмите на одну из кнопок.";
     public const string settingsMessage = "Здесь можно:\n- настроить сохранённые стили";
+    public const string choosePresetMessage = "Какой пресет сделать активым (цыфра)?";
+    public const string enterPresetNumberMessage = "Введи номер пресета.";
 
     static readonly string[] helloWords = ["прив","привет","▶️начать","ку","хай","приветик","превед","привки","хаюхай","здравствуй","здравствуйте","здорово","дарова","дороу","здарова","здорова"];
     static readonly string[] cancelWords = ["↩️назад", "назад", "выйти", "отмена", "отменить", "отменяй", "галя", "галина", "стоп"];
@@ -23,7 +25,7 @@ internal static class Interactions
     public static readonly string backButtonText = "↩️Назад";
     public static readonly string gotoPresetsButtonText = "🎨Сохранённые стили";
     public static readonly string doneButtonText = "✅Готово";
-    public static readonly string choosePresetButtonText = "☑️Сделать активным";
+    public static readonly string choosePresetButtonText = "☑️Выбрать активный";
 
     public static readonly IReplyMarkup mainReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton("▶️Начать")], [new KeyboardButton("⚙️Настройки")]]);
     public static readonly IReplyMarkup backButtonReplyMarkup = new ReplyKeyboardMarkup(new KeyboardButton("↩️Назад"));

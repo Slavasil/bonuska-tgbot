@@ -5,6 +5,7 @@ internal class DialogData
     public DialogState state;
     public string? inputPictureFilename;
     public string? inputTitle;
+    public UserPreset[]? shownPresets;
 }
 
 enum DialogState
@@ -16,4 +17,5 @@ enum DialogState
     ShowingResult,
     Settings,
     ViewingPresets,
+    ChoosingPreset,
 }

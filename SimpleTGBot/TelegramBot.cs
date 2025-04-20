@@ -7,6 +7,7 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace SimpleTGBot;
 
@@ -211,18 +212,7 @@ internal class TelegramBot
                         if (messageText == Interactions.gotoPresetsButtonText)
                         {
                             replied = true;
-                            dialogData.state = DialogState.ViewingPresets;
-                            (UserPreset[] presets, long activePresetId) = await GetUserPresets(user);
-                            int activePresetIndex = 0;
-                            for (int i = 0; i < presets.Length; ++i)
-                            {
-                                if (presets[i].Id == activePresetId)
-                                {
-                                    activePresetIndex = i;
-                                    break;
-                                }
-                            }
-                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakePresetListMessage(presets.Select(preset => preset.Name).ToArray(), activePresetIndex), replyMarkup: Interactions.presetsReplyMarkup);
+                            await DialogShowPresets(botClient, user, message.Chat.Id, dialogData);
                         }
                         else if (messageText == Interactions.backButtonText)
                         {
@@ -248,10 +238,45 @@ internal class TelegramBot
                             dialogData.state = DialogState.Settings;
                             await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.settingsMessage, replyMarkup: Interactions.settingsReplyMarkup);
                         }
+                        else if (messageText == Interactions.choosePresetButtonText)
+                        {
+                            replied = true;
+                            dialogData.state = DialogState.ChoosingPreset;
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.choosePresetMessage, replyMarkup: Interactions.backButtonReplyMarkup);
+                        }
                     }
                     if (!replied)
                     {
                         await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.chooseActionMessage, replyMarkup: Interactions.presetsReplyMarkup);
+                    }
+                    break;
+                }
+            case DialogState.ChoosingPreset:
+                {
+                    bool replied = false;
+                    if (message.Text is { } messageText)
+                    {
+                        if (messageText == Interactions.backButtonText)
+                        {
+                            replied = true;
+                            await DialogShowPresets(botClient, user, message.Chat.Id, dialogData);
+                        }
+                        else if (int.TryParse(messageText, out int presetIndex))
+                        {
+                            if (presetIndex >= 1 && presetIndex <= dialogData.shownPresets.Count())
+                            {
+                                replied = true;
+                                presetIndex -= 1;
+                                long id = dialogData.shownPresets[presetIndex].Id;
+                                await SetActiveUserPreset(user, id);
+                                await botClient.SendTextMessageAsync(message.Chat.Id, "Выбран пресет \"" + dialogData.shownPresets[presetIndex].Name + "\"", cancellationToken: cancellationToken);
+                                await DialogShowPresets(botClient, user, message.Chat.Id, dialogData);
+                            }
+                        }
+                    }
+                    if (!replied)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.enterPresetNumberMessage, replyMarkup: Interactions.presetsReplyMarkup);
                     }
                     break;
                 }
@@ -347,6 +372,23 @@ internal class TelegramBot
         dialogData.state = DialogState.Initial;
         if (dialogData.inputPictureFilename != null)
             temp.deleteTemporaryFile(dialogData.inputPictureFilename);
+    }
+
+    async Task DialogShowPresets(ITelegramBotClient botClient, User user, long chatId, DialogData dialogData)
+    {
+        dialogData.state = DialogState.ViewingPresets;
+        (UserPreset[] presets, long activePresetId) = await GetUserPresets(user);
+        int activePresetIndex = 0;
+        for (int i = 0; i < presets.Length; ++i)
+        {
+            if (presets[i].Id == activePresetId)
+            {
+                activePresetIndex = i;
+                break;
+            }
+        }
+        dialogData.shownPresets = presets;
+        await botClient.SendTextMessageAsync(chatId, Interactions.MakePresetListMessage(presets.Select(preset => preset.Name).ToArray(), activePresetIndex), replyMarkup: Interactions.presetsReplyMarkup);
     }
 
     async Task AddUserToDatabase(User u)
@@ -484,6 +526,15 @@ internal class TelegramBot
                 throw new Exception("выбранный пресет пользователя " + u.Id + " не найден");
             }
         }
+    }
+
+    async Task SetActiveUserPreset(User u, long id)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "UPDATE users SET selected_preset = $1 WHERE id = $2";
+        cmd.Parameters.AddWithValue("$1", id);
+        cmd.Parameters.AddWithValue("$2", u.Id);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     /// <summary>
