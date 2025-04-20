@@ -222,7 +222,7 @@ internal class TelegramBot
                                     break;
                                 }
                             }
-                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakePresetListMessage(presets.Select(preset => preset.Name).ToArray(), activePresetIndex), replyMarkup: Interactions.backButtonReplyMarkup);
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakePresetListMessage(presets.Select(preset => preset.Name).ToArray(), activePresetIndex), replyMarkup: Interactions.presetsReplyMarkup);
                         }
                         else if (messageText == Interactions.backButtonText)
                         {
@@ -251,7 +251,7 @@ internal class TelegramBot
                     }
                     if (!replied)
                     {
-                        await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.chooseActionMessage, replyMarkup: Interactions.settingsReplyMarkup);
+                        await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.chooseActionMessage, replyMarkup: Interactions.presetsReplyMarkup);
                     }
                     break;
                 }
