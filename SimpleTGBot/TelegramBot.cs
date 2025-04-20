@@ -1,4 +1,5 @@
-﻿using SimpleTGBot.MemeGen;
+﻿using SimpleTGBot.Logging;
+using SimpleTGBot.MemeGen;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
@@ -7,15 +8,21 @@ using Telegram.Bot.Types.Enums;
 
 namespace SimpleTGBot;
 
-public class TelegramBot
+internal class TelegramBot
 {
     private string token;
+    private Logger logger;
+    private Dictionary<long, DialogData> dialogs;
     private TempStorage temp;
+    private HttpClient httpClient;
 
-    public TelegramBot(string token)
+    public TelegramBot(string token, Logger logger)
     {
         this.token = token;
+        this.logger = logger;
+        dialogs = new Dictionary<long, DialogData>();
         temp = new TempStorage();
+        httpClient = new HttpClient();
     }
     
     /// <summary>
@@ -40,11 +47,11 @@ public class TelegramBot
         try
         {
             var me = await botClient.GetMeAsync(cancellationToken: cts.Token);
-            Console.WriteLine($"Бот @{me.Username} запущен.\nДля остановки нажмите клавишу Esc...");
+            logger.Info($"Бот @{me.Username} запущен.\r\nДля остановки нажмите клавишу Esc...");
         }
         catch (ApiRequestException)
         {
-            Console.WriteLine("Указан неправильный токен");
+            logger.Fatal("Указан неправильный токен");
             goto botQuit;
         }
         
@@ -63,27 +70,94 @@ public class TelegramBot
     /// <param name="cancellationToken">Служебный токен для работы с многопоточностью</param>
     async Task OnMessageReceived(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
-        var message = update.Message;
-        if (message is null)
+        if (update.Message is not { } message) return;
+        if (message.Chat.Type != ChatType.Private) return;
+
+        DialogData dialogData;
+        if (!dialogs.ContainsKey(message.Chat.Id))
         {
-            return;
-        }
-        if (message.Text is not { } messageText)
+            dialogData = new DialogData() { state = DialogState.Initial };
+            dialogs[message.Chat.Id] = dialogData;
+        } else
         {
-            return;
+            dialogData = dialogs[message.Chat.Id];
         }
-        var chatId = message.Chat.Id;
 
-        Console.WriteLine($"Получено сообщение в чате {chatId}: '{messageText}'");
+        switch (dialogData.state)
+        {
+            case DialogState.Initial:
+                {
+                    bool replied = false;
+                    if (message.Photo is { } picture)
+                    {
+                        replied = true;
+                        await DialogHandleDemotivatorPicture(botClient, dialogData, message, picture, cancellationToken);
+                    }
+                    else if (message.Text is { } messageText)
+                    {
+                        if (Interactions.IsStartCommand(messageText) || Interactions.IsHello(messageText))
+                        {
+                            _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.backButtonReplyMarkup);
+                            dialogData.state = DialogState.AwaitingPicture;
+                            replied = true;
+                        }
+                    }
+                    if (!replied)
+                    {
+                        _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.sayHelloMessage, replyMarkup: Interactions.initialReplyMarkup);
+                    }
+                    break;
+                }
+            case DialogState.AwaitingPicture:
+                {
+                    if (message.Photo is { } picture)
+                    {
+                        await DialogHandleDemotivatorPicture(botClient, dialogData, message, picture, cancellationToken);
+                    }
+                    else
+                    {
+                        bool reacted = false;
+                        if (message.Text is { } messageText)
+                        {
+                            if (Interactions.IsCancellation(messageText))
+                            {
+                                dialogData.state = DialogState.Initial;
+                                _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.quickActionReplyMarkup);
+                                reacted = true;
+                            }
+                        }
+                        if (!reacted)
+                            _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.sendPictureOrQuitMessage, replyMarkup: Interactions.backButtonReplyMarkup);
+                    }
+                    break;
+                }
+        }
+    }
 
-        Message sentMessage = await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: "Ты написал:\n" + messageText,
-            cancellationToken: cancellationToken);
-
-        // грязный тест
-        MemoryStream demotivatorPng = DemotivatorGen.MakePictureDemotivator("pic.png", [new DemotivatorText() {Title=messageText, Subtitle=messageText}], DemotivatorGen.DefaultStyle());
-        await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivatorPng, "dem.png"));
+    async Task DialogHandleDemotivatorPicture(ITelegramBotClient botClient, DialogData dialogData, Message message, PhotoSize[] picture, CancellationToken cancellationToken)
+    {
+        string largestSizeId = picture[picture.Length - 1].FileId;
+        Telegram.Bot.Types.File pictureFile = await botClient.GetFileAsync(largestSizeId, cancellationToken);
+        string pictureExtension = pictureFile.FilePath.Substring(pictureFile.FilePath.LastIndexOf('.') + 1);
+        try
+        {
+            using (HttpResponseMessage response = await httpClient.GetAsync(FilePathToUrl(pictureFile.FilePath), cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
+                (string tempFileName, FileStream tempFile) = temp.newTemporaryFile("pic", pictureExtension);
+                await response.Content.CopyToAsync(tempFile);
+                tempFile.Close();
+                logger.Info($"Файл картинки {tempFileName} загружен от пользователя {message.From.FirstName}[{message.From.Id}]");
+                dialogData.inputPictureFilename = tempFileName;
+            }
+        }
+        catch (Exception e)
+        {
+            logger.Error("Ошибка при скачивании картинки от пользователя: " + e.GetType().Name + ": " + e.Message);
+            logger.Error(e.StackTrace ?? "");
+            _ = botClient.SendTextMessageAsync(message.Chat.Id, "Ошибка :(");
+            dialogData.state = DialogState.Initial;
+        }
     }
 
     /// <summary>
@@ -103,8 +177,13 @@ public class TelegramBot
             _ => exception.ToString()
         };
 
-        Console.WriteLine(errorMessage);
+        logger.Error(errorMessage);
         
         return Task.CompletedTask;
+    }
+
+    private string FilePathToUrl(string filePath)
+    {
+        return $"https://api.telegram.org/file/bot{token}/{filePath}";
     }
 }

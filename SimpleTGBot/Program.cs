@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using SimpleTGBot.Logging;
 
 namespace SimpleTGBot;
 
@@ -29,8 +30,11 @@ public static class Program
             return 1;
         }
 
-        TelegramBot telegramBot = new TelegramBot(botToken);
+        Logger logger = new Logger();
+        logger.Sinks.Add(new StdoutSink());
+        TelegramBot telegramBot = new TelegramBot(botToken, logger);
         await telegramBot.Run();
+        logger.Dispose();
 
         return 0;
     }
