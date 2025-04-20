@@ -106,6 +106,12 @@ internal class TelegramBot
                             dialogData.state = DialogState.AwaitingPicture;
                             replied = true;
                         }
+                        else if (Interactions.IsGotoSettings(messageText))
+                        {
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.settingsMessage, replyMarkup: Interactions.settingsReplyMarkup);
+                            dialogData.state = DialogState.Settings;
+                            replied = true;
+                        }
                     }
                     if (!replied)
                     {
@@ -185,6 +191,48 @@ internal class TelegramBot
                     if (!replied)
                     {
                         await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.chooseActionMessage, replyMarkup: Interactions.resultActionReplyMarkup);
+                    }
+                    break;
+                }
+            case DialogState.Settings:
+                {
+                    bool replied = false;
+                    if (message.Text is { } messageText)
+                    {
+                        if (messageText == Interactions.gotoPresetsButtonText)
+                        {
+                            replied = true;
+                            dialogData.state = DialogState.ViewingPresets;
+                            await botClient.SendTextMessageAsync(message.Chat.Id, "<заглушка>", replyMarkup: Interactions.backButtonReplyMarkup);
+                        }
+                        else if (messageText == Interactions.backButtonText)
+                        {
+                            replied = true;
+                            dialogData.state = DialogState.Initial;
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.mainReplyMarkup);
+                        }
+                    }
+                    if (!replied)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.chooseActionMessage, replyMarkup: Interactions.settingsReplyMarkup);
+                    }
+                    break;
+                }
+            case DialogState.ViewingPresets:
+                {
+                    bool replied = false;
+                    if (message.Text is { } messageText)
+                    {
+                        if (messageText == Interactions.backButtonText)
+                        {
+                            replied = true;
+                            dialogData.state = DialogState.Settings;
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.settingsMessage, replyMarkup: Interactions.settingsReplyMarkup);
+                        }
+                    }
+                    if (!replied)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.chooseActionMessage, replyMarkup: Interactions.settingsReplyMarkup);
                     }
                     break;
                 }
