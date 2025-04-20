@@ -34,7 +34,7 @@ public class DemotivatorGen
             Padding = 10,
             OuterMargin = 20,
             CaptionSpacing = 32,
-            Wtf1 = 60,
+            AdditionalTextWidth = 60,
             OutlineColor = Color.FromArgb(255, 255, 255, 255),
             TitleColor = Color.FromArgb(255, 255, 255, 255),
             SubtitleColor = Color.FromArgb(255, 255, 255, 255),
@@ -71,11 +71,11 @@ public class DemotivatorGen
             float frameHeight = contentHeight + style.Padding * 2.0f + style.BorderThickness * 2.0f;
 
             string title = texts[i].Title;
-            WordWrapResult titleWrap = wordWrap(title, frameWidth + style.Wtf1 * 2f, frameWidth * 1.5f, measureTitleString);
+            WordWrapResult titleWrap = wordWrap(title, frameWidth + style.AdditionalTextWidth * 2f, frameWidth * 1.5f, measureTitleString);
             titles[i] = titleWrap.lines;
 
             string subtitle = texts[i].Subtitle;
-            WordWrapResult subtitleWrap = wordWrap(subtitle, frameWidth + style.Wtf1 * 2f, titleWrap.actualWidth, measureSubtitleString);
+            WordWrapResult subtitleWrap = wordWrap(subtitle, frameWidth + style.AdditionalTextWidth * 2f, titleWrap.actualWidth, measureSubtitleString);
             subtitles[i] = subtitleWrap.lines;
 
             float subdemWidth = Math.Max(frameWidth, Math.Max(titleWrap.actualWidth, subtitleWrap.actualWidth));
