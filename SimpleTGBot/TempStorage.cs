@@ -3,7 +3,7 @@
 internal class TempStorage : IDisposable
 {
     private string directory;
-    private Dictionary<FileStream, string> createdTempFiles;
+    private List<string> createdTempFiles;
     private Random rng;
 
     public TempStorage()
@@ -16,17 +16,16 @@ internal class TempStorage : IDisposable
         } while (Directory.Exists(directory));
         Directory.CreateDirectory(directory);
 
-        createdTempFiles = new Dictionary<FileStream, string>();
+        createdTempFiles = new List<string>();
     }
 
     public void Dispose()
     {
-        foreach (var kv in createdTempFiles)
+        foreach (string filename in createdTempFiles)
         {
-            kv.Key.Dispose();
-            if (File.Exists(kv.Value))
+            if (File.Exists(filename))
             {
-                File.Delete(kv.Value);
+                File.Delete(filename);
             }
         }
         Directory.Delete(directory);
@@ -36,17 +35,17 @@ internal class TempStorage : IDisposable
     {
         string filename = directory + "/" + (prefix != null ? prefix + "-" : "") + RandomHexString(8) + (extension != null ? "." + extension : "");
         FileStream file = File.Open(filename, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
-        createdTempFiles.Add(file, filename);
+        createdTempFiles.Add(filename);
         return (filename, file);
     }
 
-    public void deleteTemporaryFile(FileStream file)
+    public void deleteTemporaryFile(string filename)
     {
-        if (createdTempFiles.ContainsKey(file))
+        if (createdTempFiles.Contains(filename))
         {
-            File.Delete(createdTempFiles[file]);
+            File.Delete(filename);
+            createdTempFiles.Remove(filename);
         }
-        file.Dispose();
     }
 
     private string RandomHexString(int n)
