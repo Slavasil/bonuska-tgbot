@@ -13,7 +13,7 @@ public record DemotivatorStyle
     public float Padding { get; set; }
     public float OuterMargin { get; set; }
     public float CaptionSpacing { get; set; }
-    public float Wtf1 { get; set; }
+    public float AdditionalTextWidth { get; set; }
     public Color OutlineColor { get; set; }
     public Color TitleColor { get; set; }
     public Color SubtitleColor { get; set; }

@@ -1,4 +1,6 @@
-﻿using SimpleTGBot.Logging;
+﻿using System.Drawing;
+using Microsoft.Data.Sqlite;
+using SimpleTGBot.Logging;
 using SimpleTGBot.MemeGen;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -12,17 +14,19 @@ internal class TelegramBot
 {
     private string token;
     private Logger logger;
+    private SqliteConnection database;
     private Dictionary<long, DialogData> dialogs;
     private TempStorage temp;
     private HttpClient httpClient;
 
-    public TelegramBot(string token, Logger logger)
+    public TelegramBot(string token, Logger logger, SqliteConnection db)
     {
         this.token = token;
         this.logger = logger;
         dialogs = new Dictionary<long, DialogData>();
         temp = new TempStorage();
         httpClient = new HttpClient();
+        database = db;
     }
     
     /// <summary>
@@ -72,12 +76,17 @@ internal class TelegramBot
     {
         if (update.Message is not { } message) return;
         if (message.Chat.Type != ChatType.Private) return;
+        if (message.From is not { } user) return;
 
         DialogData dialogData;
         if (!dialogs.ContainsKey(message.Chat.Id))
         {
             dialogData = new DialogData() { state = DialogState.Initial };
             dialogs[message.Chat.Id] = dialogData;
+            if (!await IsUserInDatabase(user))
+            {
+                await AddUserToDatabase(user);
+            }
         } else
         {
             dialogData = dialogs[message.Chat.Id];
@@ -203,7 +212,7 @@ internal class TelegramBot
                         {
                             replied = true;
                             dialogData.state = DialogState.ViewingPresets;
-                            await botClient.SendTextMessageAsync(message.Chat.Id, "<заглушка>", replyMarkup: Interactions.backButtonReplyMarkup);
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.MakePresetListMessage((await GetUserPresets(user)).Select(preset => preset.Name).ToArray()), replyMarkup: Interactions.backButtonReplyMarkup);
                         }
                         else if (messageText == Interactions.backButtonText)
                         {
@@ -328,6 +337,135 @@ internal class TelegramBot
         dialogData.state = DialogState.Initial;
         if (dialogData.inputPictureFilename != null)
             temp.deleteTemporaryFile(dialogData.inputPictureFilename);
+    }
+
+    async Task AddUserToDatabase(User u)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "INSERT INTO users (id) VALUES ($1)";
+        cmd.Parameters.AddWithValue("$1", u.Id);
+        await cmd.ExecuteNonQueryAsync();
+
+        cmd = database.CreateCommand();
+        UserPreset defaultPreset = UserPreset.Default();
+        defaultPreset.OwnerId = u.Id;
+        await AddPresetToDatabase(defaultPreset);
+    }
+
+    async Task AddPresetToDatabase(UserPreset p)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "INSERT INTO user_presets (user_id, name, outline_color, title_color, subtitle_color) VALUES ($1, $2, $3, $4, $5)";
+        cmd.Parameters.AddWithValue("$1", p.OwnerId);
+        cmd.Parameters.AddWithValue("$2", p.Name);
+        cmd.Parameters.AddWithValue("$3", (long)p.OutlineColor.ToArgb() & 0xFFFFFFL);
+        cmd.Parameters.AddWithValue("$4", (long)p.TitleColor.ToArgb() & 0xFFFFFFL);
+        cmd.Parameters.AddWithValue("$5", (long)p.SubtitleColor.ToArgb() & 0xFFFFFFL);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    async Task<bool> IsUserInDatabase(User u)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "SELECT id FROM users WHERE id = $1";
+        cmd.Parameters.AddWithValue("$1", u.Id);
+        using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync();
+    }
+
+    async Task<UserPreset[]> GetUserPresets(User u)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "SELECT id, user_id, name, outline_color, title_color, subtitle_color FROM user_presets WHERE id = $1";
+        cmd.Parameters.AddWithValue("$1", u.Id);
+        using var reader = await cmd.ExecuteReaderAsync();
+        List<UserPreset> result = new List<UserPreset>();
+        while (reader.Read())
+        {
+            result.Add(new UserPreset()
+            {
+                Id = reader.GetInt64(0),
+                OwnerId = reader.GetInt64(1),
+                Name = reader.GetString(2),
+                OutlineColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(3))),
+                TitleColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(4))),
+                SubtitleColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(5))),
+            });
+        }
+        return result.ToArray();
+    }
+
+    async Task<UserPreset?> GetUserPresetByName(User u, string name)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "SELECT id, outline_color, title_color, subtitle_color FROM user_presets WHERE name = $1";
+        cmd.Parameters.AddWithValue("$1", name);
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            if (reader.Read())
+            {
+                return new UserPreset()
+                {
+                    Id = reader.GetInt64(0),
+                    OwnerId = u.Id,
+                    Name = name,
+                    OutlineColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(1))),
+                    TitleColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(2))),
+                    SubtitleColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(3))),
+                };
+            }
+            else
+            {
+                return null;
+            }
+        }
+    }
+
+    async Task DeleteUserPreset(long id)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "DELETE FROM user_presets WHERE id = $1";
+        cmd.Parameters.AddWithValue("$1", id);
+        cmd.ExecuteNonQuery();
+    }
+
+    async Task<UserPreset> GetActiveUserPreset(User u)
+    {
+        var cmd = database.CreateCommand();
+        cmd.CommandText = "SELECT selected_preset FROM users WHERE id = $1";
+        cmd.Parameters.AddWithValue("$1", u.Id);
+        int activePreset = -1;
+        using (var reader = await cmd.ExecuteReaderAsync()) {
+            if (reader.Read())
+            {
+                activePreset = reader.GetInt32(0);
+            } else
+            {
+                throw new Exception("пользователь не найден");
+            }
+        }
+
+        cmd = database.CreateCommand();
+        cmd.CommandText = "SELECT name, outline_color, title_color, subtitle_color FROM user_presets WHERE id = $1";
+        cmd.Parameters.AddWithValue("$1", activePreset);
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            if (reader.Read())
+            {
+                return new UserPreset()
+                {
+                    Id = activePreset,
+                    OwnerId = u.Id,
+                    Name = reader.GetString(0),
+                    OutlineColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(1))),
+                    TitleColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(2))),
+                    SubtitleColor = System.Drawing.Color.FromArgb((int)(0xff000000L | reader.GetInt64(3))),
+                };
+            } else
+            {
+                throw new Exception("выбранный пресет пользователя " + u.Id + " не найден");
+            }
+        }
     }
 
     /// <summary>

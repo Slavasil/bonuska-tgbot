@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Microsoft.Data.Sqlite;
 using SimpleTGBot.Logging;
 
 namespace SimpleTGBot;
@@ -15,6 +16,11 @@ public static class Program
         }
         // Православная кодировка
         Console.OutputEncoding = Encoding.UTF8;
+
+        using SqliteConnection db = new("Data Source=" + Config.DEFAULT_DATABASE_FILENAME);
+        db.Open();
+
+        PrepareDatabaseTables(db);
 
         string? botToken = Config.TryReadBotTokenFile();
 
@@ -33,10 +39,29 @@ public static class Program
         using (Logger logger = new Logger())
         {
             logger.Sinks.Add(new StdoutSink());
-            TelegramBot telegramBot = new TelegramBot(botToken, logger);
+            TelegramBot telegramBot = new TelegramBot(botToken, logger, db);
             await telegramBot.Run();
         }
 
+        db.Close();
+
         return 0;
+    }
+    
+    static void PrepareDatabaseTables(SqliteConnection db)
+    {
+        var cmd = db.CreateCommand();
+        cmd.CommandText = "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, selected_preset INTEGER)";
+        cmd.ExecuteNonQuery();
+
+        cmd = db.CreateCommand();
+        cmd.CommandText = @"CREATE TABLE IF NOT EXISTS user_presets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            name TEXT,
+            outline_color INTEGER,
+            title_color INTEGER,
+            subtitle_color INTEGER)";
+        cmd.ExecuteNonQuery();
     }
 }

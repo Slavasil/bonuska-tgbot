@@ -1,4 +1,5 @@
-﻿using Telegram.Bot.Types.ReplyMarkups;
+﻿using System.Text;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace SimpleTGBot;
 
@@ -28,6 +29,8 @@ internal static class Interactions
     public static readonly IReplyMarkup resultActionReplyMarkup = new ReplyKeyboardMarkup([new KeyboardButton(doneButtonText)]);
     public static readonly IReplyMarkup settingsReplyMarkup = new ReplyKeyboardMarkup([[new KeyboardButton(gotoPresetsButtonText)], [new KeyboardButton(backButtonText)]]);
 
+    static readonly string[] digitEmojis = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
+
     public static bool IsStartCommand(string message)
     {
         return message.Split(' ').FirstOrDefault() == "/start";
@@ -54,5 +57,34 @@ internal static class Interactions
     public static bool IsCancelButton(string message)
     {
         return message == backButtonText;
+    }
+
+    public static string MakePresetListMessage(string[] presetNames)
+    {
+        StringBuilder msg = new StringBuilder();
+        msg.Append("Твои сохранённые стили:\n");
+        for (int i = 0; i < presetNames.Length; i++)
+        {
+            msg.Append(DigitsToEmoji((i + 1).ToString()));
+            msg.Append(' ');
+            msg.Append(presetNames[i]);
+            msg.Append('\n');
+        }
+        if (presetNames.Length == 0)
+        {
+            msg.Append("<пусто>");
+        }
+        msg.Append("\n");
+        return msg.ToString();
+    }
+
+    public static string DigitsToEmoji(string s)
+    {
+        StringBuilder sb = new StringBuilder(s.Length * 4);
+        foreach (char digit in s)
+        {
+            sb.Append(digitEmojis[digit - '0']);
+        }
+        return sb.ToString();
     }
 }
