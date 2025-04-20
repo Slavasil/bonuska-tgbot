@@ -39,6 +39,7 @@ public static class Program
         using (Logger logger = new Logger())
         {
             logger.Sinks.Add(new StdoutSink());
+            logger.Sinks.Add(new FileSink("dembot.log"));
             TelegramBot telegramBot = new TelegramBot(botToken, logger, db);
             await telegramBot.Run();
         }
