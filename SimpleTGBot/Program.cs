@@ -30,11 +30,12 @@ public static class Program
             return 1;
         }
 
-        Logger logger = new Logger();
-        logger.Sinks.Add(new StdoutSink());
-        TelegramBot telegramBot = new TelegramBot(botToken, logger);
-        await telegramBot.Run();
-        logger.Dispose();
+        using (Logger logger = new Logger())
+        {
+            logger.Sinks.Add(new StdoutSink());
+            TelegramBot telegramBot = new TelegramBot(botToken, logger);
+            await telegramBot.Run();
+        }
 
         return 0;
     }
