@@ -95,16 +95,21 @@ internal class TelegramBot
                     }
                     else if (message.Text is { } messageText)
                     {
-                        if (Interactions.IsStartCommand(messageText) || Interactions.IsHello(messageText))
+                        if (Interactions.IsStartCommand(messageText))
                         {
-                            _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.backButtonReplyMarkup);
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.greetingMessage, replyMarkup: Interactions.mainReplyMarkup);
+                            replied = true;
+                        }
+                        else if (Interactions.IsHello(messageText))
+                        {
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.backButtonReplyMarkup);
                             dialogData.state = DialogState.AwaitingPicture;
                             replied = true;
                         }
                     }
                     if (!replied)
                     {
-                        _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.sayHelloMessage, replyMarkup: Interactions.initialReplyMarkup);
+                        _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.sayHelloMessage, replyMarkup: Interactions.mainReplyMarkup);
                     }
                     break;
                 }
@@ -122,7 +127,7 @@ internal class TelegramBot
                             if (Interactions.IsCancellation(messageText))
                             {
                                 dialogData.state = DialogState.Initial;
-                                _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.quickActionReplyMarkup);
+                                _ = botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.mainReplyMarkup);
                                 reacted = true;
                             }
                         }
@@ -141,7 +146,7 @@ internal class TelegramBot
                         } else
                         {
                             DialogCancelDemotivatorCreation(dialogData);
-                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.quickActionReplyMarkup);
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.mainReplyMarkup);
                         }
                     } else
                     {
@@ -160,7 +165,7 @@ internal class TelegramBot
                         else
                         {
                             DialogCancelDemotivatorCreation(dialogData);
-                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.quickActionReplyMarkup);
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.mainReplyMarkup);
                         }
                     }
                     break;
@@ -173,8 +178,8 @@ internal class TelegramBot
                         if (messageText == Interactions.doneButtonText)
                         {
                             replied = true;
-                            dialogData.state = DialogState.AwaitingPicture;
-                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.quickActionReplyMarkup);
+                            DialogFinishDemotivatorCreation(dialogData);
+                            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.mainReplyMarkup);
                         }
                     }
                     if (!replied)
@@ -211,7 +216,7 @@ internal class TelegramBot
             logger.Error(e.StackTrace ?? "");
             dialogData.state = DialogState.Initial;
             await botClient.SendTextMessageAsync(message.Chat.Id, "Ошибка :(");
-            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.quickActionReplyMarkup);
+            await botClient.SendTextMessageAsync(message.Chat.Id, Interactions.awaitingPictureMessage, replyMarkup: Interactions.mainReplyMarkup);
         }
     }
 
@@ -236,7 +241,7 @@ internal class TelegramBot
                 dialogData.inputPictureFilename!,
                 [new DemotivatorText() { Title = title, Subtitle = subtitle }],
                 DemotivatorGen.DefaultStyle());
-            DialogFinishDemotivatorCreation(dialogData);
+            dialogData.state = DialogState.ShowingResult;
             await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, replyMarkup: Interactions.resultActionReplyMarkup, cancellationToken: cancellationToken);
             demotivator.Dispose();
         } else
@@ -258,21 +263,21 @@ internal class TelegramBot
                 dialogData.inputPictureFilename!,
                 [new DemotivatorText() { Title = title, Subtitle = subtitle }],
                 DemotivatorGen.DefaultStyle());
-        DialogFinishDemotivatorCreation(dialogData);
+        dialogData.state = DialogState.ShowingResult;
         await botClient.SendPhotoAsync(message.Chat.Id, new InputFile(demotivator, "dem.png"), caption: Interactions.showingResultMessage, replyMarkup: Interactions.resultActionReplyMarkup, cancellationToken: cancellationToken);
         demotivator.Dispose();
     }
 
     void DialogCancelDemotivatorCreation(DialogData dialogData)
     {
-        dialogData.state = DialogState.AwaitingPicture;
+        dialogData.state = DialogState.Initial;
         if (dialogData.inputPictureFilename != null)
             temp.deleteTemporaryFile(dialogData.inputPictureFilename);
     }
 
     void DialogFinishDemotivatorCreation(DialogData dialogData)
     {
-        dialogData.state = DialogState.ShowingResult;
+        dialogData.state = DialogState.Initial;
         if (dialogData.inputPictureFilename != null)
             temp.deleteTemporaryFile(dialogData.inputPictureFilename);
     }

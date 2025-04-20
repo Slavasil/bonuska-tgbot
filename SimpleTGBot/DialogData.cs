@@ -14,4 +14,5 @@ enum DialogState
     AwaitingTitle,
     AwaitingSubtitle,
     ShowingResult,
+    Settings,
 }
